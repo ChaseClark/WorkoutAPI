@@ -1,9 +1,17 @@
+using Microsoft.EntityFrameworkCore;
+using WorkoutAPI.DB;
+using WorkoutAPI.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// add context for postgres db
+builder.Services.AddDbContext<WorkoutContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
@@ -14,29 +22,50 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-var summaries = new[]
+// DB Check
+using (var scope = app.Services.CreateScope())
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    var dbContext = scope.ServiceProvider.GetRequiredService<WorkoutContext>();
+    dbContext.Database.EnsureCreated();
+}
 
-app.MapGet("/weatherforecast", () =>
+// Endpoints
+app.MapGet("/workouts", async (WorkoutContext context) =>
+    await context.Workouts.ToListAsync());
+
+app.MapGet("/workouts/{id}", async (int id, WorkoutContext context) =>
+    await context.Workouts.FindAsync(id) is Workout workout
+        ? Results.Ok(workout)
+        : Results.NotFound());
+
+app.MapPost("/workouts", async (Workout workout, WorkoutContext context) =>
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+    context.Workouts.Add(workout);
+    await context.SaveChangesAsync();
+    return Results.Created($"/workouts/{workout.Id}", workout);
+});
+
+app.MapPut("/workouts/{id}", async (int id, Workout updatedWorkout, WorkoutContext context) =>
+{
+    var workout = await context.Workouts.FindAsync(id);
+    if (workout is null) return Results.NotFound();
+
+    workout.Name = updatedWorkout.Name;
+    workout.Description = updatedWorkout.Description;
+    workout.Date = updatedWorkout.Date;
+
+    await context.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+app.MapDelete("/workouts/{id}", async (int id, WorkoutContext context) =>
+{
+    var workout = await context.Workouts.FindAsync(id);
+    if (workout is null) return Results.NotFound();
+
+    context.Workouts.Remove(workout);
+    await context.SaveChangesAsync();
+    return Results.NoContent();
+});
 
 app.Run();
-
-internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
