@@ -26,6 +26,11 @@ if (app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<WorkoutContext>();
+    if (app.Environment.IsDevelopment())
+    {
+        // always start with clean db for testing
+        dbContext.Database.EnsureDeleted();
+    }
     dbContext.Database.EnsureCreated();
 }
 
