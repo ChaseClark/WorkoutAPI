@@ -32,6 +32,10 @@ using (var scope = app.Services.CreateScope())
         dbContext.Database.EnsureDeleted();
     }
     dbContext.Database.EnsureCreated();
+    if (app.Environment.IsDevelopment())
+    {
+        //TODO: add seed data
+    }
 }
 
 // Endpoints
