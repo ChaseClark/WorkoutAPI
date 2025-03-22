@@ -6,7 +6,9 @@ namespace WorkoutAPI.DB
     public class WorkoutContext : DbContext
     {
         public DbSet<Workout> Workouts { get; set; }
-        public DbSet<Workout> Categories { get; set; }
+        public DbSet<Category> Categories { get; set; }
+        public DbSet<Exercise> Exercises { get; set; }
+
 
 
         public WorkoutContext(DbContextOptions<WorkoutContext> options) : base(options) { }
@@ -15,6 +17,8 @@ namespace WorkoutAPI.DB
         {
             modelBuilder.Entity<Workout>().ToTable("Workouts");
             modelBuilder.Entity<Category>().ToTable("Categories");
+            modelBuilder.Entity<Exercise>().ToTable("Exercises");
+
 
         }
     }
