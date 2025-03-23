@@ -7,7 +7,7 @@ public class WorkoutExercise
 
     public int Reps { get; set; }
 
-    public double Weight { get; set; }
+    public decimal Weight { get; set; }
 
     public int WorkoutId { get; set; } // Required foreign key property
     public required Workout Workout { get; set; } // Required reference navigation to principal

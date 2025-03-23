@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using WorkoutAPI.DB;
 using WorkoutAPI.Models;
@@ -13,7 +15,15 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<WorkoutContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.Configure<JsonOptions>(options =>
+{
+    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
+
 var app = builder.Build();
+
+// fix circular refs
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -34,20 +44,25 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.EnsureCreated();
     if (app.Environment.IsDevelopment())
     {
-        //TODO: add seed data
+        SeedData.Initialize(dbContext);
     }
 }
 
 // Endpoints
 
+// Users
+app.MapGet("/users", async (WorkoutContext context) =>
+    await context.Users.ToListAsync());
+
+app.MapGet("/users/{id}", async (int id, WorkoutContext context) =>
+    await context.Users.FindAsync(id) is User user
+        ? Results.Ok(user)
+        : Results.NotFound());
+
+
 // Workouts
 app.MapGet("/workouts", async (WorkoutContext context) =>
-    await context.Workouts.ToListAsync());
-
-app.MapGet("/workouts/{id}", async (int id, WorkoutContext context) =>
-    await context.Workouts.FindAsync(id) is Workout workout
-        ? Results.Ok(workout)
-        : Results.NotFound());
+    await context.Workouts.Include(w => w.WorkoutExercises).ToListAsync());
 
 app.MapPost("/workouts", async (Workout workout, WorkoutContext context) =>
 {
@@ -61,8 +76,7 @@ app.MapPut("/workouts/{id}", async (int id, Workout updatedWorkout, WorkoutConte
     var workout = await context.Workouts.FindAsync(id);
     if (workout is null) return Results.NotFound();
 
-    workout.Name = updatedWorkout.Name;
-    workout.Description = updatedWorkout.Description;
+    workout.Notes = updatedWorkout.Notes;
     workout.Date = updatedWorkout.Date;
 
     await context.SaveChangesAsync();
@@ -82,11 +96,6 @@ app.MapDelete("/workouts/{id}", async (int id, WorkoutContext context) =>
 // Categories
 app.MapGet("/categories", async (WorkoutContext context) =>
     await context.Categories.ToListAsync());
-
-app.MapGet("/categories/{id}", async (int id, WorkoutContext context) =>
-    await context.Categories.FindAsync(id) is Category category
-        ? Results.Ok(category)
-        : Results.NotFound());
 
 app.MapPost("/categories", async (Category category, WorkoutContext context) =>
 {
@@ -115,5 +124,20 @@ app.MapDelete("/categories/{id}", async (int id, WorkoutContext context) =>
     await context.SaveChangesAsync();
     return Results.NoContent();
 });
+
+
+// Exercises
+app.MapGet("/exercises", async (WorkoutContext context) =>
+    await context.Exercises.Include(e => e.Category).ToListAsync());
+
+// Workout Exercises
+app.MapPost("/workouts/{workoutId}/exercises", async (int workoutId, WorkoutExercise workoutExercise, WorkoutContext context) =>
+{
+    workoutExercise.WorkoutId = workoutId;
+    context.WorkoutExercises.Add(workoutExercise);
+    await context.SaveChangesAsync();
+    return Results.Created($"/workouts/{workoutId}/exercises/{workoutExercise.ExerciseId}", workoutExercise);
+});
+
 
 app.Run();
