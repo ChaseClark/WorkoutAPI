@@ -128,10 +128,11 @@ app.MapPost("/workouts", [Authorize] async (
     await context.SaveChangesAsync();
     return Results.Created($"/workouts/{workout.Id}", workout);
 });
-// TODO: add authorize
-app.MapPut("/workouts/{id}", async (int id, Workout updatedWorkout, WorkoutContext context) =>
+
+app.MapPut("/workouts/{id}", [Authorize] async (int id, Workout updatedWorkout, WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
 {
-    var workout = await context.Workouts.FindAsync(id);
+    var user = await userManager.GetUserAsync(httpContext.User);
+    var workout = await context.Workouts.Where(w => w.User.Id == user!.Id && w.Id == id).FirstAsync();
     if (workout is null) return Results.NotFound();
 
     workout.Notes = updatedWorkout.Notes;
@@ -140,10 +141,11 @@ app.MapPut("/workouts/{id}", async (int id, Workout updatedWorkout, WorkoutConte
     await context.SaveChangesAsync();
     return Results.NoContent();
 });
-// TODO: add authorize
-app.MapDelete("/workouts/{id}", async (int id, WorkoutContext context) =>
+
+app.MapDelete("/workouts/{id}", [Authorize] async (int id, WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
 {
-    var workout = await context.Workouts.FindAsync(id);
+    var user = await userManager.GetUserAsync(httpContext.User);
+    var workout = await context.Workouts.Where(w => w.User.Id == user!.Id && w.Id == id).FirstAsync();
     if (workout is null) return Results.NotFound();
 
     context.Workouts.Remove(workout);
@@ -152,20 +154,25 @@ app.MapDelete("/workouts/{id}", async (int id, WorkoutContext context) =>
 });
 
 // Categories
-// TODO: add authorize
 app.MapGet("/categories", [Authorize] async (WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
-    await context.Categories.ToListAsync());
-// TODO: add authorize
-app.MapPost("/categories", async (Category category, WorkoutContext context) =>
 {
+    var user = await userManager.GetUserAsync(httpContext.User);
+    await context.Categories.Where(c => c.UserId == user!.Id).Include(c => c.Exercises).ToListAsync();
+});
+
+app.MapPost("/categories", [Authorize] async (Category category, WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
+{
+    var user = await userManager.GetUserAsync(httpContext.User);
+    category.UserId = user!.Id;
     context.Categories.Add(category);
     await context.SaveChangesAsync();
     return Results.Created($"/categories/{category.Id}", category);
 });
-// TODO: add authorize
-app.MapPut("/categories/{id}", async (int id, Category updatedCategory, WorkoutContext context) =>
+
+app.MapPut("/categories/{id}", [Authorize] async (int id, Category updatedCategory, WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
 {
-    var category = await context.Categories.FindAsync(id);
+    var user = await userManager.GetUserAsync(httpContext.User);
+    var category = await context.Categories.Where(c => c.User.Id == user!.Id && c.Id == id).FirstAsync();
     if (category is null) return Results.NotFound();
 
     category.Name = updatedCategory.Name;
@@ -173,10 +180,11 @@ app.MapPut("/categories/{id}", async (int id, Category updatedCategory, WorkoutC
     await context.SaveChangesAsync();
     return Results.NoContent();
 });
-// TODO: add authorize
-app.MapDelete("/categories/{id}", async (int id, WorkoutContext context) =>
+
+app.MapDelete("/categories/{id}", [Authorize] async (int id, WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
 {
-    var category = await context.Categories.FindAsync(id);
+    var user = await userManager.GetUserAsync(httpContext.User);
+    var category = await context.Categories.Where(c => c.User.Id == user!.Id && c.Id == id).FirstAsync();
     if (category is null) return Results.NotFound();
 
     context.Categories.Remove(category);
@@ -186,12 +194,16 @@ app.MapDelete("/categories/{id}", async (int id, WorkoutContext context) =>
 
 
 // Exercises
-// TODO: add authorize
-app.MapGet("/exercises", async (WorkoutContext context) =>
-    await context.Exercises.Include(e => e.Category).ToListAsync());
-
+app.MapGet("/exercises", [Authorize] async (WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
+{
+    var user = await userManager.GetUserAsync(httpContext.User);
+    return await context.Exercises
+            .Where(e => e.UserId == user!.Id)
+            .Include(e => e.WorkoutExercises)
+            .ToListAsync();
+});
 // Workout Exercises
-app.MapPost("/workouts/{workoutId}/exercises", async (int workoutId, WorkoutExercise workoutExercise, WorkoutContext context) =>
+app.MapPost("/workouts/{workoutId}/exercises", [Authorize] async (int workoutId, WorkoutExercise workoutExercise, WorkoutContext context, HttpContext httpContext, UserManager<ApplicationUser> userManager) =>
 {
     workoutExercise.WorkoutId = workoutId;
     context.WorkoutExercises.Add(workoutExercise);
