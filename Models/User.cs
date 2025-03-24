@@ -1,7 +1,8 @@
+using Microsoft.AspNetCore.Identity;
 using WorkoutAPI.Models;
-public class User
+public class ApplicationUser : IdentityUser
 {
-    public int Id { get; set; }
-    public required string Email { get; set; }
     public ICollection<Workout> Workouts { get; } = new List<Workout>();
+    public ICollection<Exercise> Exercises { get; } = new List<Exercise>();
+    public ICollection<Category> Categories { get; } = new List<Category>();
 }
