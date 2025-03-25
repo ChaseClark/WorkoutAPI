@@ -18,6 +18,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngular",
+        policy => policy.WithOrigins("http://localhost:4200")
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials());
+});
+
 // Add Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -68,7 +78,7 @@ var app = builder.Build();
 // identity middleware
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseCors("AllowAngular");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -84,7 +94,7 @@ using (var scope = app.Services.CreateScope())
     if (app.Environment.IsDevelopment())
     {
         // always start with clean db for testing
-        dbContext.Database.EnsureDeleted();
+        // dbContext.Database.EnsureDeleted();
     }
     dbContext.Database.EnsureCreated();
     // if (app.Environment.IsDevelopment())
